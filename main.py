@@ -154,20 +154,21 @@ def main(page: ft.Page):
             
             
     def get_communities_data():
-        config.communities_data = defaultdict(list)
+        #config.communities_data = defaultdict(list)
         doc_ref = db.collection("communities")
         docs = doc_ref.stream()
         #creating a dict of keys: communities with value: list of dict with key:member_name and value: points 
         for doc in docs:
             members = doc.get("members")
+            config.communities_data[doc.id] = {}
             users_ref = db.collection("users")
             users = users_ref.stream()
             for user in users:
                 if user.id in members:
                     #users_dict_list.append({user.id, user.to_dict().get("points", 0)})
-                    config.communities_data[doc.id].append({user.id, user.to_dict().get("points", 0)})
+                    config.communities_data[doc.id].update({user.id : user.to_dict().get("points", 0)})
                     #print(user.id, user.to_dict().get("points", 0))
-                    #print(doc.id, config.communities_data[doc.id])
+                    print(doc.id, config.communities_data[doc.id])
             #communities_data.update({doc.id, defaultdict(users_dict_list)})
     
     #def add_community_data
@@ -183,8 +184,8 @@ def main(page: ft.Page):
             dt_community.rows.append(ft.DataRow(
                                         cells=[
                                             ft.DataCell(ft.Text(0)),
-                                            ft.DataCell(user),
-                                            ft.DataCell(config.communities_data[com][user]),
+                                            ft.DataCell(ft.Text(user)),
+                                            ft.DataCell(ft.Text(config.communities_data[com][user])),
                                             ],
                                         )
             )
@@ -284,7 +285,8 @@ def main(page: ft.Page):
                     "/community_" + community_split[1],
                     [
                         ft.AppBar(title=ft.Text("Community " + community_split[1]), bgcolor=ft.colors.SURFACE_VARIANT),
-                        PaginatedDataTable(datatable=dt_community, rows_per_page=8)
+                        PaginatedDataTable(datatable=dt_community, rows_per_page=8),
+                        navbar
                     ],
                 )
             )
@@ -344,7 +346,7 @@ def main(page: ft.Page):
                 ft.View(
                     "/bet",
                     [
-                        ft.AppBar(title=ft.Text("Betting on " + team_home + " vs " + team_away + " game" ), bgcolor=ft.colors.SURFACE_VARIANT),
+                        ft.AppBar(title=ft.Text("Betting on " + config.team_home + " vs " + config.team_away + " game" ), bgcolor=ft.colors.SURFACE_VARIANT),
                         ft.Row(spacing=3, controls=items),
                         ft.ElevatedButton("Bet", on_click=lambda _: bet_on_game(items[0].value, items[2].value)),
                         navbar
