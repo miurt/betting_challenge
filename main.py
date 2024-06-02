@@ -1,16 +1,23 @@
 import flet as ft
-from google.cloud import firestore
 from firebase import db
 from paginated_dt import PaginatedDataTable
-from collections import defaultdict
+from helpers import(
+    update_name,
+    update_betting_game,
+    login_db,
+    signup_db,
+    join_community_db,
+    get_communities_to_join,
+    add_community_db,
+    bet_on_game
+    )
+    
+#from collections import defaultdict
 import config
 
 def main(page: ft.Page): 
     page.title = "Betting App"
     page.adaptive = True
-    
-    #creating one dictionary of many dictionaries with default value of list.
-    d = defaultdict(lambda: defaultdict(list))
     
     navbar = ft.NavigationBar(
                             destinations=[
@@ -45,13 +52,11 @@ def main(page: ft.Page):
             ],
             rows=[],
         )
-            
-    def update_name(e):
-        config.name = e.control.value
-        
-    def update_communities(e):
-        config.communities = e
-        get_communities_data()
+    
+    options_0_9 = [ft.dropdown.Option(0), ft.dropdown.Option(1), ft.dropdown.Option(2),
+                    ft.dropdown.Option(3), ft.dropdown.Option(4), ft.dropdown.Option(5),
+                    ft.dropdown.Option(6), ft.dropdown.Option(7), ft.dropdown.Option(8),
+                    ft.dropdown.Option(9),]
     
     def navigation():
         match navbar.selected_index:
@@ -65,122 +70,65 @@ def main(page: ft.Page):
                 print("something wronggg")         
     
     def login(user_name):
-        users_ref = db.collection("users")
-        docs = users_ref.stream()
-        for doc in docs:
-            if user_name == doc.id:
+        if user_name == "admin":
+            #ADMIN MODE
+            page.go("/admin")
+        if login_db(user_name):
                 page.go("/communities")
                 print("logged in as " + user_name)
-                update_communities(doc.to_dict().get("communities", []))
-                init()
+                init_games()
                 return True
         return False
                
     def signup(user_name):
         if not login(user_name):
-            users_ref = db.collection("users")
-            doc_ref = users_ref.document(user_name)
-            doc_ref.set({"name": user_name, "comunities": [], "friends": [], "points": 0})
+            signup_db(user_name)
             page.go("/communities")
             print("registered as " + user_name)
-            init()
-            #page.client_storage.set("name", name)
-            #page.client_storage.set("communities", [])
-            #page.client_storage.set("friends", [])
-            
-    def get_all_communities():
-        doc_ref = db.collection("communities")
-        docs = doc_ref.stream()
-        return [doc.id for doc in docs] 
-    
-    def get_communities_to_join():
-        #com = page.client_storage.get("communities")
-        if len(config.communities) < 5:
-            com_all = get_all_communities()
-            for x in config.communities:
-                com_all.remove(x)
-        return com_all
+            init_games()
     
     def join_community(com_name):
-        doc_ref = db.collection("users").document(config.name)
-        doc_ref.update({"communities": firestore.ArrayUnion([com_name])})
-        
-        doc_ref = db.collection("communities").document(com_name)
-        doc_ref.update({"members": firestore.ArrayUnion([config.name])})
-        #page.client_storage.get("communities").append(com_name)
-        config.communities.append(com_name)
+        join_community_db(com_name)
         page.go("/communities")
-            
         
     def add_community(com_name):
-        if len(config.communities) < 5:
-            #print(com_name)
-            doc_ref = db.collection("communities").document(com_name)
-            doc_ref.set({})
-        
-            join_community(com_name)
-    
-    def bet_on_game(first, second):
-        doc_ref = db.collection("bets").document(config.name + "_" + config.game_time)
-        doc_ref.set({"home_team": first,"away_team": second})
+        add_community_db(com_name)
+        page.go("/communities")
         
     def set_up_current_betting_game(team_home_name, team_away_name, game_starts_at):
-        config.team_home = team_home_name
-        config.team_away = team_away_name
-        config.game_time = game_starts_at
+        update_betting_game(team_home_name, team_away_name, game_starts_at)
         page.go("/bet")
       
-    def init():
+    def init_games():
         docs_ref = db.collection("games")
         docs = docs_ref.stream()
         for game in docs:
             team_home_name = game.to_dict().get("team_home_name", "")
             team_away_name = game.to_dict().get("team_away_name", "")
             game_starts_at = game.to_dict().get("game_starts_at", "")
-            dt_games.rows.append(ft.DataRow(
-                    cells=[
+            cells=[
                         ft.DataCell(ft.Text(team_home_name)),
                         ft.DataCell(ft.Text(team_away_name)),
                         ft.DataCell(ft.Text(game_starts_at)),
-                        #TODO: Change for already started games
-                        #TODO: Fix names
-                        ft.DataCell(ft.ElevatedButton("Bet", 
-                                                      on_click=lambda team_home_name, team_away_name, game_starts_at:
-                                                          set_up_current_betting_game(team_home_name, team_away_name, game_starts_at)
-                                )
-                            ),
-                    ],
-                ),)
+                ]
+            if not game.to_dict().get("game_started"):
+                cells.append(ft.DataCell(ft.ElevatedButton(
+                    "Bet", 
+                    on_click=lambda team_home_name, team_away_name, game_starts_at:
+                    set_up_current_betting_game(team_home_name, team_away_name, game_starts_at)
+                )
+            ),)
+            dt_games.rows.append(ft.DataRow(cells))
             
-            
-    def get_communities_data():
-        #config.communities_data = defaultdict(list)
-        doc_ref = db.collection("communities")
-        docs = doc_ref.stream()
-        #creating a dict of keys: communities with value: list of dict with key:member_name and value: points 
-        for doc in docs:
-            members = doc.get("members")
-            config.communities_data[doc.id] = {}
-            users_ref = db.collection("users")
-            users = users_ref.stream()
-            for user in users:
-                if user.id in members:
-                    #users_dict_list.append({user.id, user.to_dict().get("points", 0)})
-                    config.communities_data[doc.id].update({user.id : user.to_dict().get("points", 0)})
-                    #print(user.id, user.to_dict().get("points", 0))
-                    print(doc.id, config.communities_data[doc.id])
-            #communities_data.update({doc.id, defaultdict(users_dict_list)})
+                
     
     #def add_community_data
         #TODO
         
             
     def set_up_dt_community(com):
-        print(com)
-        print(config.communities_data[com])
         dt_community.rows = []
         for user in config.communities_data[com]:
-            print(user)
             dt_community.rows.append(ft.DataRow(
                                         cells=[
                                             ft.DataCell(ft.Text(0)),
@@ -210,7 +158,6 @@ def main(page: ft.Page):
                         ft.AppBar(title=ft.Text("Login"), bgcolor=ft.colors.SURFACE_VARIANT),
                         ft.TextField(hint_text="Please enter your login information", label="Login Information", on_change=update_name),
                         ft.ElevatedButton("Login", on_click=lambda _: login(config.name)),
-                        #ft.ElevatedButton("Go Home", on_click=lambda _: page.go("/")),
                     ],
                 )
             )
@@ -222,13 +169,10 @@ def main(page: ft.Page):
                         ft.AppBar(title=ft.Text("Sign Up"), bgcolor=ft.colors.SURFACE_VARIANT),
                         ft.TextField(hint_text="Please enter your name for registration", label="Sign Up", on_change=update_name),
                         ft.ElevatedButton("Sign up", on_click=lambda _: signup(config.name)),
-                        #ft.ElevatedButton("Go Home", on_click=lambda _: page.go("/")),
                     ],
                 )
             )
         elif page.route == "/communities":
-            #com_list = page.client_storage.get("communities")
-            
             communities_view = ft.Column(
                 [
                     ft.Text("My Communities:"),
@@ -247,7 +191,7 @@ def main(page: ft.Page):
                 ft.View(
                     "/communities",
                     [
-                        ft.AppBar(title=ft.Text("Euro 2024 Communities"), bgcolor=ft.colors.SURFACE_VARIANT),
+                        ft.AppBar(title=ft.Text("Euro 2024 Communities"), leading=None, bgcolor=ft.colors.SURFACE_VARIANT),
                         communities_view,
                         navbar
                     ],
@@ -314,10 +258,7 @@ def main(page: ft.Page):
             )
         elif page.route == "/bet":
             items = [ft.Dropdown(
-                        options=[ft.dropdown.Option(0), ft.dropdown.Option(1), ft.dropdown.Option(2),
-                                 ft.dropdown.Option(3), ft.dropdown.Option(4), ft.dropdown.Option(5),
-                                 ft.dropdown.Option(6), ft.dropdown.Option(7), ft.dropdown.Option(8),
-                                 ft.dropdown.Option(9),],
+                        options=options_0_9,
                         alignment=ft.alignment.center,
                         width=80,
                         height=80,
@@ -332,10 +273,7 @@ def main(page: ft.Page):
                         border_radius=ft.border_radius.all(5),
                         ),
                      ft.Dropdown(
-                        options=[ft.dropdown.Option(0), ft.dropdown.Option(1), ft.dropdown.Option(2),
-                                 ft.dropdown.Option(3), ft.dropdown.Option(4), ft.dropdown.Option(5),
-                                 ft.dropdown.Option(6), ft.dropdown.Option(7), ft.dropdown.Option(8),
-                                 ft.dropdown.Option(9),],
+                        options=options_0_9,
                         alignment=ft.alignment.center,
                         width=80,
                         height=80,

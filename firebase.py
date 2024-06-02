@@ -6,9 +6,3 @@ cred = credentials.Certificate('.secrets/betting-challenge-check24-firebase-admi
 firebase_admin.initialize_app(cred)
 
 db = firestore.client()
-
-""" 
-
-firebase = Firebase(firebaseConfig)
-
-db = firebase.database() """

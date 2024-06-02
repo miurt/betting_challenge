@@ -50,8 +50,7 @@ W40;W38;2024-07-06 16:00:00
 W43;W44;2024-07-06 19:00:00
 W45;W46;2024-07-09 19:00:00
 W47;W48;2024-07-10 19:00:00
-W49;W50;2024-07-14 19:00:00
-"""
+W49;W50;2024-07-14 19:00:00"""
 
 def upload_data():
     #team_home_name;team_away_name;game_starts_at
@@ -60,9 +59,10 @@ def upload_data():
     for game in data.split("\n"):
         game_split = game.split(";")
         doc_ref = games_ref.document(game_split[2])
-        doc_ref.set({"team_home_name": game_split[0],
-                     "team_away_name": game_split[1],
-                     "game_starts_at": game_split[2]})
+        doc_ref.update({"game_started": False,
+                     "game_ended": False,
+                     "result" : ""
+                     })
         print("uploaded" + game_split[2])
     print("finish upload")
     #doc_ref = games_ref.document(name)
