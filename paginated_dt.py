@@ -192,7 +192,7 @@ class PaginatedDataTable(ft.UserControl):
             ft.Container(
                 ft.Column(
                     [
-                        ft.Text(self.title, style=ft.TextThemeStyle.HEADLINE_SMALL),
+                        ft.Text(self.title, style=ft.Text.theme_style.HEADLINE_SMALL),
                         self.pdt,
                         ft.Row(
                             [

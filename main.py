@@ -12,12 +12,21 @@ from helpers import(
     bet_on_game
     )
     
-#from collections import defaultdict
+import pandas as pd
 import config
 
 def main(page: ft.Page): 
     page.title = "Betting App"
     page.adaptive = True
+    
+    def headers(df : pd.DataFrame) -> list:
+        return [ft.DataColumn(ft.Text(header)) for header in df.columns]
+
+    def rows(df : pd.DataFrame) -> list:
+        rows = []
+        for index, row in df.iterrows():
+            rows.append(ft.DataRow(cells = [ft.DataCell(ft.Text(row[header])) for header in df.columns]))
+        return rows
     
     navbar = ft.NavigationBar(
                             destinations=[
@@ -44,19 +53,14 @@ def main(page: ft.Page):
             rows=[],
         )
     
-    dt_community= ft.DataTable(
-            columns=[
-                ft.DataColumn(ft.Text("Position")),
-                ft.DataColumn(ft.Text("User")),
-                ft.DataColumn(ft.Text("Points")),
-            ],
-            rows=[],
-        )
+    dt_community= ft.DataTable()
     
     options_0_9 = [ft.dropdown.Option(0), ft.dropdown.Option(1), ft.dropdown.Option(2),
                     ft.dropdown.Option(3), ft.dropdown.Option(4), ft.dropdown.Option(5),
                     ft.dropdown.Option(6), ft.dropdown.Option(7), ft.dropdown.Option(8),
                     ft.dropdown.Option(9),]
+    
+    cards = []
     
     def navigation():
         match navbar.selected_index:
@@ -76,6 +80,7 @@ def main(page: ft.Page):
         if login_db(user_name):
                 page.go("/communities")
                 print("logged in as " + user_name)
+                init_dashboard()
                 init_games()
                 return True
         return False
@@ -98,6 +103,28 @@ def main(page: ft.Page):
     def set_up_current_betting_game(team_home_name, team_away_name, game_starts_at):
         update_betting_game(team_home_name, team_away_name, game_starts_at)
         page.go("/bet")
+        
+    def init_dashboard():
+        
+        for com in config.communities:
+            df = pd.DataFrame(config.communities_data[com])
+            print(df)
+            if len(df.index) <= 7:
+                dt = ft.DataTable(columns=headers(df), rows=rows(df))
+            cards.append(ft.Card(
+                ft.Container(
+                    ft.Column(
+                            [
+                                ft.Text(com, style=ft.Text.style.HEADLINE_SMALL),
+                                dt,
+                            ],
+                            scroll=ft.ScrollMode.AUTO
+                        ),
+                        padding=10,
+                    ),
+                    elevation=5,
+                ),
+            )
       
     def init_games():
         docs_ref = db.collection("games")
@@ -127,16 +154,8 @@ def main(page: ft.Page):
         
             
     def set_up_dt_community(com):
-        dt_community.rows = []
-        for user in config.communities_data[com]:
-            dt_community.rows.append(ft.DataRow(
-                                        cells=[
-                                            ft.DataCell(ft.Text(0)),
-                                            ft.DataCell(ft.Text(user)),
-                                            ft.DataCell(ft.Text(config.communities_data[com][user])),
-                                            ],
-                                        )
-            )
+        dt_community.columns=headers(config.communities_data[com])
+        dt_community.rows=rows(config.communities_data[com])
         
     def route_change(route):
         page.views.clear()
@@ -236,13 +255,12 @@ def main(page: ft.Page):
             )
         
         elif page.route == "/dashboard":
+            cards.insert(0, ft.AppBar(title=ft.Text("Dashboard"), bgcolor=ft.colors.SURFACE_VARIANT))
+            cards.append(navbar)
             page.views.append(
                 ft.View(
                     "/dashboard",
-                    [
-                        ft.AppBar(title=ft.Text("Dashboard"), bgcolor=ft.colors.SURFACE_VARIANT),
-                        navbar
-                    ],
+                    cards,
                 )
             )
         elif page.route == "/games":

@@ -1,5 +1,6 @@
 from firebase import db
 from google.cloud import firestore
+import pandas as pd
 import config
 
 def update_name(e):
@@ -30,7 +31,6 @@ def join_community_db(com_name):
         
     doc_ref = db.collection("communities").document(com_name)
     doc_ref.update({"members": firestore.ArrayUnion([config.name])})
-    #page.client_storage.get("communities").append(com_name)
     config.communities.append(com_name)
     
 def get_all_communities():
@@ -64,14 +64,20 @@ def bet_on_game(first, second):
 def set_communities_data():
     doc_ref = db.collection("communities")
     docs = doc_ref.stream()
-    #creating a dict of dict ({community, {user, points}})
+    #creating a dict of community and pd.DataFrame of users and points {community, pd.DataFrame}
     for doc in docs:
+        
         members = doc.get("members")
         config.communities_data[doc.id] = {}
         users_ref = db.collection("users")
         users = users_ref.stream()
+        data = []
         for user in users:
             if user.id in members:
-                config.communities_data[doc.id].update({user.id : user.to_dict().get("points", 0)})
-                print(doc.id, config.communities_data[doc.id])
-    
+                data.append([user.id, user.to_dict().get("points", 0)])     
+        df = pd.DataFrame(data, columns=["User", "Points"])
+        #adding ranking
+        df.insert(loc=0, column="Position", value = df["Points"].rank(method = 'dense',ascending = False).astype('Int64'))
+        df = df.sort_values(by=['Position', 'Points'], ascending=[True, True])
+        #print(df)
+        config.communities_data[doc.id].update(df)
