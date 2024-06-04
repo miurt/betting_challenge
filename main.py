@@ -30,12 +30,9 @@ def main(page: ft.Page):
     
     navbar = ft.NavigationBar(
                             destinations=[
-                                ft.NavigationDestination(icon=ft.icons.EXPLORE, label="Communities"),
-                                ft.NavigationDestination(icon=ft.icons.COMMUTE, label="Dashboard"),
-                                ft.NavigationDestination(
-                                    icon=ft.icons.BOOKMARK_BORDER,
-                                    selected_icon=ft.icons.BOOKMARK,
-                                    label="Games",
+                                ft.NavigationDestination(icon=ft.icons.GROUPS_OUTLINED, selected_icon=ft.icons.GROUPS, label="Communities"),
+                                ft.NavigationDestination(icon=ft.icons.DASHBOARD_OUTLINED, selected_icon=ft.icons.DASHBOARD, label="Dashboard"),
+                                ft.NavigationDestination(icon=ft.icons.SPORTS_SOCCER_OUTLINED, selected_icon=ft.icons.SPORTS_SOCCER, label="Games",
                                 ),
                             ],
                             on_change=lambda _: navigation(),
@@ -105,22 +102,54 @@ def main(page: ft.Page):
         page.go("/bet")
         
     def init_dashboard():
+        #TODO: Add Games
         
+        #Preview for Leaderboards
         for com in config.communities:
             df = pd.DataFrame(config.communities_data[com])
-            print(df)
-            if len(df.index) <= 7:
-                dt = ft.DataTable(columns=headers(df), rows=rows(df))
-            cards.append(ft.Card(
-                ft.Container(
+            
+            #When more than 7 users, choose some of them
+            if len(df.index) > 7:
+                #TOP 3
+                df_new = df.iloc[[0, 1, 2]]
+                
+                #logged user and users around him
+                user_row_num = df.index.get_loc(df[df['User'] == config.name].index[0])
+                if user_row_num == 2:
+                    df_new.concat(df.iloc[[3]])
+                elif user_row_num == 3:
+                    df_new.concat(df.iloc[[3, 4]])
+                elif user_row_num > 3 & user_row_num + 1 < len(df.index):
+                    df_new.concat(df.iloc[[user_row_num-1, user_row_num, user_row_num+1]])
+                    
+                #last user
+                if user_row_num + 1 < len(df.index) - 1:
+                    df_new.concat(df.iloc[[len(df.index) - 1]])
+                
+                df = df_new
+ 
+            dt = ft.DataTable(columns=headers(df), rows=rows(df))
+            cards.append(
+                ft.Card(
                     ft.Column(
-                            [
-                                ft.Text(com, style=ft.Text.style.HEADLINE_SMALL),
-                                dt,
-                            ],
-                            scroll=ft.ScrollMode.AUTO
-                        ),
-                        padding=10,
+                        [
+                            ft.Container(
+                                ft.Column(
+                                    [
+                                        ft.Text(com, theme_style=ft.TextThemeStyle.HEADLINE_SMALL),
+                                        dt,
+                                    ],
+                                ),
+                            padding=10,
+                            ),
+                            ft.Row( 
+                                [
+                                    ft.Icon(name=ft.icons.NAVIGATE_NEXT),
+                                    ft.TextButton(com, on_click=lambda e: page.go("/community_" + e.control.text)),
+                                ],
+                                alignment=ft.alignment.bottom_right
+                            ),
+                        ]
                     ),
                     elevation=5,
                 ),
@@ -154,8 +183,8 @@ def main(page: ft.Page):
         
             
     def set_up_dt_community(com):
-        dt_community.columns=headers(config.communities_data[com])
-        dt_community.rows=rows(config.communities_data[com])
+        dt_community.columns=headers(pd.DataFrame(config.communities_data[com]))
+        dt_community.rows=rows(pd.DataFrame(config.communities_data[com]))
         
     def route_change(route):
         page.views.clear()
@@ -194,8 +223,8 @@ def main(page: ft.Page):
         elif page.route == "/communities":
             communities_view = ft.Column(
                 [
-                    ft.Text("My Communities:"),
-                ]
+                    ft.Text("My Communities:", theme_style=ft.TextThemeStyle.HEADLINE_SMALL),
+                ],
             )
             if len(config.communities) > 0:
                 for com in config.communities:
@@ -205,7 +234,8 @@ def main(page: ft.Page):
                 
             if len(config.communities) < 5:
                     communities_view.controls.append(ft.ElevatedButton("Join a Community", on_click=lambda _: page.go("/communities_join")))
-                
+            
+            communities_view.alignment=ft.alignment.center
             page.views.append(
                 ft.View(
                     "/communities",
@@ -261,6 +291,7 @@ def main(page: ft.Page):
                 ft.View(
                     "/dashboard",
                     cards,
+                    scroll=ft.ScrollMode.ADAPTIVE
                 )
             )
         elif page.route == "/games":

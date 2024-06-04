@@ -12,7 +12,7 @@ A betting_challenge application for Check24 challenge (app to bet on sports, UEF
 
 
 I will add the video till Wednesday 06.06 :)
-Currently dashboard is not implemented, will be added on Tuesday
+Currently dashboard is not completely implemented, will be added on Tuesday, still some bugs are present, will be fixed before Wednesday
 
 To run the app:
 
