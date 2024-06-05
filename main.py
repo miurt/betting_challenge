@@ -2,6 +2,7 @@ import flet as ft
 from firebase import db
 from paginated_dt import PaginatedDataTable
 from leaderboard_dt import LeaderboardDataTable
+from collections import defaultdict
 from helpers import(
     update_name,
     login_db,
@@ -9,15 +10,17 @@ from helpers import(
     join_community_db,
     get_communities_to_join,
     add_community_db,
-    bet_on_game, 
+    bet_on_game_db, 
     headers,
     rows,
     start_game_db,
     end_game_db,
     update_game_score_db,
-    set_games_today
+    set_games_today,
+    set_communities_data,
+    ButtonWithInfo
+    #add_user_to_community_data
     )
-from data import populate_with_users
 import pandas as pd
 import config
 
@@ -28,9 +31,34 @@ def main(page: ft.Page):
     page.adaptive = True
     
     def on_message(msg):
+        print(str(msg))
+        msg = msg.split(": ")
+        #ADMIN UPDATES
+        if msg[0] == "admin":
+            msg = msg[0].split("_")
+        #Game started
+            if msg[0] == "start":
+                init_games()
+                init_dashboard()
+        #Game result updated
+            if msg[0] == "result":
+                init_dashboard()
+        #Game ended
+            if msg[0] == "end":
+                set_communities_data()
+            page.go("/admin")
+            page.update()
+            page.go("/admin")
         
+        #ADMIN UPDATES END
         
-        page.update()
+        else:
+            set_communities_data()
+            #new_user = msg[0]
+            #com = msg[1]
+            #add_user_to_community_data(new_user, com)
+        
+            page.update()
 
     page.pubsub.subscribe(on_message)
     
@@ -61,6 +89,8 @@ def main(page: ft.Page):
                     ft.dropdown.Option(6), ft.dropdown.Option(7), ft.dropdown.Option(8),
                     ft.dropdown.Option(9),]
     
+    games_view = ft.Column(controls = [])
+    
     cards = []
     
     def navigation():
@@ -77,8 +107,9 @@ def main(page: ft.Page):
     def login(user_name):
         if user_name == "admin":
             #ADMIN MODE
+            set_games_today(current_time)
             page.go("/admin")
-        if login_db(user_name):
+        elif login_db(user_name):
                 page.go("/communities")
                 print("logged in as " + user_name)
                 set_games_today(current_time)
@@ -98,6 +129,7 @@ def main(page: ft.Page):
             
     
     def join_community(com_name):
+        page.pubsub.send_all(f"{config.name}: {com_name}")
         join_community_db(com_name)
         page.go("/communities")
         
@@ -110,6 +142,10 @@ def main(page: ft.Page):
         config.team_away = team_away_name
         config.game_time = game_starts_at
         page.go("/bet")
+        
+    def bet_on_game(first, second):
+        bet_on_game_db(first, second)
+        page.go("/games")
         
     def init_dashboard():
         #Preview for today games
@@ -145,16 +181,19 @@ def main(page: ft.Page):
                 #logged user and users around him
                 user_row_num = df.index.get_loc(df[df['User'] == config.name].index[0])
                 if user_row_num == 2:
-                    indicies.append(2)
+                    indicies.append(3)
                 elif user_row_num == 3:
                     indicies.extend([3,4])
-                elif user_row_num > 3 & user_row_num + 1 < len(df.index):
+                elif user_row_num > 3 and user_row_num + 1 < len(df.index):
                     indicies.extend([user_row_num-1, user_row_num, user_row_num+1])
                     
                 #last user
-                if user_row_num + 1 < len(df.index) - 1:
+                if user_row_num + 1 < len(df.index):
                     indicies.append(len(df.index) - 1)
-                indicies.sort()
+                elif user_row_num + 1 == len(df.index):
+                    indicies.append(len(df.index) - 2)
+                    indicies.append(len(df.index) - 1)
+                indicies.sort() 
                 df = df.iloc[indicies]
  
             dt = ft.DataTable(columns=headers(df), rows=rows(df))
@@ -191,24 +230,22 @@ def main(page: ft.Page):
             team_home_name = game.to_dict().get("team_home_name", "")
             team_away_name = game.to_dict().get("team_away_name", "")
             game_starts_at = game.to_dict().get("game_starts_at", "")
-            cells=[
+            started = game.to_dict().get("game_started", False)
+            x = [team_home_name, team_away_name, game_starts_at]
+            dt_games.rows.append(ft.DataRow(
+                    cells=[
                         ft.DataCell(ft.Text(team_home_name)),
                         ft.DataCell(ft.Text(team_away_name)),
                         ft.DataCell(ft.Text(game_starts_at)),
-                ]
-            if not game.to_dict().get("game_started"):
-                cells.append(ft.DataCell(ft.ElevatedButton(
-                    "Bet", 
-                    on_click=lambda team_home_name, team_away_name, game_starts_at:
-                    set_up_current_betting_game(team_home_name, team_away_name, game_starts_at)
+                        ft.DataCell(ButtonWithInfo(
+                                text = "Bet", 
+                                info = [team_home_name, team_away_name, game_starts_at, started],
+                                on_click=lambda e: set_up_current_betting_game(e.control.info[0], e.control.info[1], e.control.info[2])
+                            )
+                        )
+                    ]
                 )
-            ),)
-            dt_games.rows.append(ft.DataRow(cells))
-            
-                
-    
-    #def add_community_data
-        #TODO
+            )
         
     #ADMIN FUNCTIONS START
     
@@ -263,30 +300,62 @@ def main(page: ft.Page):
                     ],
                 )
             )
+            #ADMIN MODE
         elif page.route == "/admin":
-            communities_view = ft.Column(
-                [
-                    ft.Text("My Communities:", theme_style=ft.TextThemeStyle.HEADLINE_SMALL),
-                ],
-            )
-            if len(config.communities) > 0:
-                for com in config.communities:
-                    communities_view.controls.append(ft.ElevatedButton(com, on_click=lambda e: page.go("/community_" + e.control.text)))
-            else:
-                communities_view.controls.append(ft.Text("you haven't joined any communities"))
-                
-            if len(config.communities) < 5:
-                    communities_view.controls.append(ft.ElevatedButton("Join a Community", on_click=lambda _: page.go("/communities_join")))
+            games_view.controls.clear()
+            items = [ft.Dropdown(
+                        options=options_0_9,
+                        alignment=ft.alignment.center,
+                        width=80,
+                        height=80,
+                        border_radius=ft.border_radius.all(5),
+                        ),
+                     ft.Container(
+                        content=ft.Text("vs"),
+                        alignment=ft.alignment.center,
+                        width=80,
+                        height=80,
+                        bgcolor=ft.colors.LIGHT_BLUE_50,
+                        border_radius=ft.border_radius.all(5),
+                        ),
+                     ft.Dropdown(
+                        options=options_0_9,
+                        alignment=ft.alignment.center,
+                        width=80,
+                        height=80,
+                        border_radius=ft.border_radius.all(5),
+                        ),
+                    ]
+            games_view.controls.append(ft.Text("Today's Games:", theme_style=ft.TextThemeStyle.HEADLINE_SMALL))
+            if len(config.games_today) > 0:
+                for game in config.games_today:
+                    doc_ref = db.collection("games").document(game)
+                    doc = doc_ref.get()
+                    game_started = doc.to_dict().get("game_started", False)
+                    team_home = doc.to_dict().get("team_home_name", "")
+                    team_away = doc.to_dict().get("team_away_name", "")
+                    games_view.controls.append(ft.Text(team_home + " vs " + team_away, theme_style=ft.TextThemeStyle.HEADLINE_SMALL))
+                    if not game_started:
+                        games_view.controls.append(ButtonWithInfo(text ="Start", info = [game], on_click=lambda e: start_game(e.control.info[0])))
+                    else:
+                        games_view.controls.extend(
+                            [
+                                ft.Row(spacing=3, controls=items),
+                                ButtonWithInfo(text = "Update", info = [game], on_click=lambda e: update_game_score(e.control.info[0], str(items[0].value) + "_" + str(items[2].value))),
+                                ButtonWithInfo(text = "Stop", info = [game], on_click=lambda e: end_game(e.control.info[0])),
+                            ]
+                        )
             
-            communities_view.alignment=ft.alignment.center
+            games_view.alignment=ft.alignment.center
             page.views.append(
                 ft.View(
                     "/communities",
                     [
-                        ft.AppBar(title=ft.Text("Euro 2024 Communities"), leading=None, bgcolor=ft.colors.SURFACE_VARIANT),
-                        communities_view,
-                        navbar
+                        #GAMES TODAY #START 
+                        #IF STARTED UPDATE SCORE / END
+                        games_view,
                     ],
+                    scroll=ft.ScrollMode.ADAPTIVE
                 )
             )
             
@@ -422,4 +491,4 @@ def main(page: ft.Page):
     page.on_view_pop = view_pop
     page.go(page.route)
 
-ft.app(target=main)
+ft.app(target=main, view = ft.WEB_BROWSER)

@@ -5,6 +5,13 @@ import flet as ft
 import config
 
 
+class ButtonWithInfo(ft.ElevatedButton):
+    def __init__(self, text, on_click, info: list):
+        super().__init__()
+        self.text = text
+        self.on_click = on_click
+        self.info = info
+
 def headers(df : pd.DataFrame) -> list:
     return [ft.DataColumn(ft.Text(header)) for header in df.columns]
 
@@ -63,7 +70,7 @@ def add_community_db(com_name):
         
         join_community_db(com_name)
     
-def bet_on_game(first, second):
+def bet_on_game_db(first, second):
     doc_ref = db.collection("bets").document(config.name + "_" + config.game_time)
     doc_ref.set({"home_team": first,"away_team": second})
     
@@ -94,7 +101,6 @@ def set_communities_data():
         #adding ranking
         df.insert(loc=0, column="Position", value = df["Points"].rank(method = 'dense',ascending = False).astype('Int64'))
         df = df.sort_values(by=['Position', 'Points'], ascending=[True, True])
-        #print(df)
         config.communities_data[doc.id].update(df)
         
 #ADMIN FUNCTIONS START
@@ -106,8 +112,8 @@ def start_game_db(game):
 def end_game_db(game):
     doc_ref = db.collection("games").document(game)
     doc_ref.update({"game_ended": True})
-    
-    result_split = doc_ref.get("result").split("_")
+    doc = doc_ref.get()
+    result_split = doc.to_dict().get("result", "0_0").split("_")
     home_team_result = result_split[0]
     away_team_result = result_split[1]
     
@@ -118,19 +124,21 @@ def end_game_db(game):
         bet_split = bet.id.split("_")
         if bet_split[1] == game:
             user_ref = db.collection("users").document(bet_split[0])
-            current_points = user_ref.get("points", 0)
-            home_team = bet.get("home_team")
-            away_team = bet.get("away_team")
+            user = user_ref.get()
+            current_points = user.to_dict().get("points", 0)
+            home_team = bet.to_dict().get("home_team", 0)
+            away_team = bet.to_dict().get("away_team", 0)
             #8 points for the exact result
             if home_team_result == home_team and away_team_result == away_team:
+                print("hehe " + str(current_points))
                 current_points += 8
                 user_ref.update({"points": current_points})
             #6 points for the correct goal difference
-            elif home_team_result - away_team_result == home_team - away_team:
+            elif int(home_team_result) - int(away_team_result) == int(home_team) - int(away_team):
                 current_points += 6
                 user_ref.update({"points": current_points})
             #4 points for the correct tendency 
-            elif (home_team_result > away_team_result and home_team > away_team) or (home_team_result < away_team_result and home_team < away_team):
+            elif (int(home_team_result) > int(away_team_result) and int(home_team) > int(away_team)) or (int(home_team_result) < int(away_team_result) and int(home_team) < int(away_team)):
                 current_points += 4
                 user_ref.update({"points": current_points})
             bets_ref.document(bet.id).delete()

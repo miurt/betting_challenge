@@ -66,7 +66,7 @@ class LeaderboardDataTable(ft.UserControl):
             
         else:
             index = self.down_index
-            new_indices = range(index - 11, index)
+            new_indices = range(index - 12, index - 1)
             ind = self.top_index + 1
             num_to_substract = 0
             for i in new_indices:
@@ -76,7 +76,6 @@ class LeaderboardDataTable(ft.UserControl):
                     num_to_substract += 1
             self.down_index -= num_to_substract
             
-        print(self.rows_indicies)
         self.refresh_data()
     
     def build_new_dt(self):
