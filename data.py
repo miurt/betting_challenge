@@ -1,4 +1,6 @@
 from firebase import db
+from google.cloud import firestore
+import random
 
 data = """Deutschland;Schottland;2024-06-14 19:00:00
 Ungarn;Schweiz;2024-06-15 13:00:00
@@ -67,4 +69,23 @@ def upload_data():
     print("finish upload")
     #doc_ref = games_ref.document(name)
     #doc_ref.set({"name": name})
+    
+def populate_with_users():
+    #communities, name, points
+    users_ref = db.collection("users")
+    print("start upload")
+    for i in range(1,20):
+        user_name = "test" + str(i)
+        points = random.randint(0, 50)
+        doc = users_ref.document(user_name)
+        doc.set({"name": user_name, "comunities": ["yy", "hehe"], "points": points})
+        
+        com = db.collection("communities").document("yy")
+        com.update({"members": firestore.ArrayUnion([user_name])})
+        
+        com = db.collection("communities").document("hehe")
+        com.update({"members": firestore.ArrayUnion([user_name])})
+        
+        print("uploaded " + user_name)
+    print("finish upload")
     

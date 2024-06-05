@@ -5,7 +5,6 @@ class LeaderboardDataTable(ft.UserControl):
 
     def __init__(self, dataframe : pd.DataFrame, com: str, user: str):
             super().__init__()
-            self.elevation = 5
             self.df = dataframe
             self.rows_indicies = []
             self.top_index = 0
@@ -14,6 +13,8 @@ class LeaderboardDataTable(ft.UserControl):
             self.title = com
             self.user = user
             self.set_up_indices()
+            self.dt_column = ft.Column([], scroll=ft.ScrollMode.AUTO,
+                alignment = ft.alignment.center)
     
     def headers(self, df : pd.DataFrame) -> list:
         return [ft.DataColumn(ft.Text(header)) for header in df.columns]
@@ -25,110 +26,118 @@ class LeaderboardDataTable(ft.UserControl):
         return rows
     
     def set_up_indices(self):
-        self.user_index = self.df[self.df['User'] == self.user].index[0]
-        
+        self.user_index = self.df.index.get_loc(self.df[self.df['User'] == self.user].index[0])
         if len(self.df.index) <= 6:
             for index in self.df.index:
                 self.rows_indicies.append(index)
         
         if len(self.df.index) > 6:
             #TOP 3
-            self.rows_indicies.append(0, 1, 2)
+            self.rows_indicies.extend([0, 1, 2])
             self.top_index = 2
             #adding logged user if it is NOT on top and NOT last
-            if not (self.user_index == 0 | 1 | 2) and not (self.user_index == len(self.df.index)-1):
+            if not (self.user_index in (0, 1, 2)) and not (self.user_index == len(self.df.index)-1):
                 self.down_index = self.user_index
                 self.rows_indicies.append(self.user_index)
+            elif self.user_index in (0, 1, 2):
+                self.down_index = self.user_index
+                self.top_index = self.user_index
             #last user
             self.rows_indicies.append(len(self.df.index)-1)
             
+        self.dt_column = self.build_new_dt()
+            
     def update_indices(self, top: bool):
         if self.top_index >= self.down_index - 1:
+            self.refresh_data()
             return
             
         if top:
             index = self.top_index
-            new_indices = (index + 1, index + 11)
+            new_indices = range(index + 1, index + 12)
             ind = self.top_index + 1
             for i in new_indices:
-                self.rows_indicies.insert(ind, i) 
-                ind += 1
-            self.top_index += 10
+                if i < self.down_index:
+                    self.rows_indicies.insert(ind, i) 
+                    ind += 1
+                    self.top_index += 1
+                else:
+                    break
             
         else:
             index = self.down_index
-            new_indices = (index - 11, index - 1)
+            new_indices = range(index - 11, index)
             ind = self.top_index + 1
+            num_to_substract = 0
             for i in new_indices:
-                self.rows_indicies.insert(ind, i) 
-            self.down_index -= 10
+                if i > self.top_index and i < self.down_index:
+                    self.rows_indicies.insert(ind, i) 
+                    ind += 1
+                    num_to_substract += 1
+            self.down_index -= num_to_substract
+            
+        print(self.rows_indicies)
         self.refresh_data()
     
     def build_new_dt(self):
         #CASE 1: no pagination
-        # #list smaller than 6
+        # list smaller than 6
         if len(self.df.index) == len(self.rows_indicies) or len(self.df.index) < 6:
-            print(self.df)
-            print(self.headers(self.df), self.rows(self.df))
-            return ft.Column(
-                [
+            return [
                     ft.Text(self.title, theme_style=ft.TextThemeStyle.HEADLINE_SMALL),
                     ft.DataTable(columns=self.headers(self.df), rows=self.rows(self.df))
-                ],
-                scroll=ft.ScrollMode.AUTO,
-                alignment = ft.alignment.center
-            )
+                ]
         
         #CASE 2: no pagination
         #no users between logged user and top
-        elif self.top_index <= self.down_index-1:
-            return ft.Column(
-                [
+        elif self.top_index >= self.down_index-1:
+            df = self.df.iloc[self.rows_indicies]
+            return [
                     ft.Text(self.title, theme_style=ft.TextThemeStyle.HEADLINE_SMALL),
-                    ft.DataTable(columns=self.headers(self.df), rows=self.rows(self.df.iloc[self.rows_indicies]))
-                ],
-                scroll=ft.ScrollMode.AUTO,
-                alignment = ft.alignment.center
-            )
+                    ft.DataTable(columns=self.headers(df), rows=self.rows(df))
+                ]
         
             
         #CASE 3: pagination
         #Building 2 DataTables with 2 arrows in between
         else:
-            top_indicies = [self.rows_indicies[:self.top_index]]
-            down_indicies = [self.rows_indicies[self.top_index+1:]]
+            top_indicies = self.rows_indicies[:self.top_index + 1]
+            down_indicies = self.rows_indicies[self.top_index+1:]
+            df1 = self.df.iloc[top_indicies]
+            df2 = self.df.iloc[down_indicies]
 
-            return ft.Column(
-                [
-                ft.Text(self.title, theme_style=ft.TextThemeStyle.HEADLINE_SMALL),    
-                ft.DataTable(columns=self.headers(self.df), rows=self.rows(self.df.iloc[top_indicies])),
-                ft.IconButton(
-                    icon=ft.icons.ARROW_DOWNWARD,
-                    icon_size=20,
-                    on_click=self.update_indices(self, True)
-                ),
-                ft.IconButton(
-                    icon=ft.icons.ARROW_UPWARD,
-                    icon_size=20,
-                    on_click=self.update_indices(self, False)
-                ),
-                ft.DataTable(columns=self.headers(self.df), rows=self.rows(self.df.iloc[down_indicies])),
-                ],
-                scroll=ft.ScrollMode.AUTO,
-                alignment = ft.alignment.center
-            )
+            return [
+                    ft.Text(self.title, theme_style=ft.TextThemeStyle.HEADLINE_SMALL),    
+                    ft.DataTable(columns=self.headers(df1), rows=self.rows(df1)),
+                    ft.IconButton(
+                        icon=ft.icons.ARROW_DOWNWARD,
+                        icon_size=20,
+                        on_click=lambda _: self.update_indices(top = True)
+                    ),
+                    ft.IconButton(
+                        icon=ft.icons.ARROW_UPWARD,
+                        icon_size=20,
+                        on_click=lambda _: self.update_indices(top =False)
+                    ),
+                    ft.DataTable(columns=self.headers(df2), rows=self.rows(df2)),
+                ]
                     
         
 
     def build(self):
+        print("BUILDING")
         return  ft.Card(
             ft.Container(
-                self.build_new_dt(),
+                self.dt_column,
                 padding=10,
-            )
+            ),
         )
 
     def refresh_data(self):
+        self.dt_column.controls.clear()
+        self.dt_column.controls.extend(self.build_new_dt())
+        
+        print("update data")
         self.update()
 
     def did_mount(self):

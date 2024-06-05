@@ -34,7 +34,7 @@ def signup_db(user_name):
         if user_name == doc.id:
             print("User alredy exists")
     doc_ref = users_ref.document(user_name)        
-    doc_ref.set({"name": user_name, "comunities": [], "points": 0})
+    doc_ref.set({"name": user_name, "communities": [], "points": 0})
     
 def join_community_db(com_name):
     doc_ref = db.collection("users").document(config.name)

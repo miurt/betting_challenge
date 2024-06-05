@@ -17,6 +17,7 @@ from helpers import(
     update_game_score_db,
     set_games_today
     )
+from data import populate_with_users
 import pandas as pd
 import config
 
@@ -112,6 +113,7 @@ def main(page: ft.Page):
         
     def init_dashboard():
         #Preview for today games
+        cards.clear()
         for game in config.games_today:
             doc_ref = db.collection("games").document(game)
             doc = doc_ref.get()
@@ -138,22 +140,22 @@ def main(page: ft.Page):
             #When more than 7 users, choose some of them
             if len(df.index) > 7:
                 #TOP 3
-                df_new = df.iloc[[0, 1, 2]]
+                indicies = [0, 1, 2]
                 
                 #logged user and users around him
                 user_row_num = df.index.get_loc(df[df['User'] == config.name].index[0])
                 if user_row_num == 2:
-                    df_new.concat(df.iloc[[3]])
+                    indicies.append(2)
                 elif user_row_num == 3:
-                    df_new.concat(df.iloc[[3, 4]])
+                    indicies.extend([3,4])
                 elif user_row_num > 3 & user_row_num + 1 < len(df.index):
-                    df_new.concat(df.iloc[[user_row_num-1, user_row_num, user_row_num+1]])
+                    indicies.extend([user_row_num-1, user_row_num, user_row_num+1])
                     
                 #last user
                 if user_row_num + 1 < len(df.index) - 1:
-                    df_new.concat(df.iloc[[len(df.index) - 1]])
-                
-                df = df_new
+                    indicies.append(len(df.index) - 1)
+                indicies.sort()
+                df = df.iloc[indicies]
  
             dt = ft.DataTable(columns=headers(df), rows=rows(df))
             cards.append(
@@ -347,8 +349,9 @@ def main(page: ft.Page):
                     [
                         ft.AppBar(title=ft.Text("Community " + community_split[1]), bgcolor=ft.colors.SURFACE_VARIANT),
                         LeaderboardDataTable(dataframe=df_community, com = community_split[1], user = config.name),
-                        navbar
+                        navbar,
                     ],
+                    scroll=ft.ScrollMode.ADAPTIVE
                 )
             )
         
