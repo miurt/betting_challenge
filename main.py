@@ -2,7 +2,6 @@ import flet as ft
 from firebase import db
 from paginated_dt import PaginatedDataTable
 from leaderboard_dt import LeaderboardDataTable
-from collections import defaultdict
 from helpers import(
     update_name,
     login_db,
