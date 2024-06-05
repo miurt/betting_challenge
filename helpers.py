@@ -1,8 +1,19 @@
 from firebase import db
 from google.cloud import firestore
 import pandas as pd
+import flet as ft
 import config
 
+
+def headers(df : pd.DataFrame) -> list:
+    return [ft.DataColumn(ft.Text(header)) for header in df.columns]
+
+def rows(df : pd.DataFrame) -> list:
+    rows = []
+    for index, row in df.iterrows():
+        rows.append(ft.DataRow(cells = [ft.DataCell(ft.Text(row[header])) for header in df.columns]))
+    return rows
+    
 def update_name(e):
     config.name = e.control.value
     
@@ -51,15 +62,19 @@ def add_community_db(com_name):
         doc_ref.set({})
         
         join_community_db(com_name)
-        
-def update_betting_game(team_home_name, team_away_name, game_starts_at):
-    config.team_home = team_home_name
-    config.team_away = team_away_name
-    config.game_time = game_starts_at
     
 def bet_on_game(first, second):
     doc_ref = db.collection("bets").document(config.name + "_" + config.game_time)
     doc_ref.set({"home_team": first,"away_team": second})
+    
+def set_games_today(today):
+    today_time = today.split(" ")
+    games_ref = db.collection("games")
+    games = games_ref.stream()
+    for game in games:
+        game_time = game.id.split(" ")
+        if today_time[0] == game_time[0]:
+            config.games_today.append(game.id)
     
 def set_communities_data():
     doc_ref = db.collection("communities")
@@ -81,3 +96,47 @@ def set_communities_data():
         df = df.sort_values(by=['Position', 'Points'], ascending=[True, True])
         #print(df)
         config.communities_data[doc.id].update(df)
+        
+#ADMIN FUNCTIONS START
+    
+def start_game_db(game):
+    doc_ref = db.collection("games").document(game)
+    doc_ref.update({"game_started": True})
+    
+def end_game_db(game):
+    doc_ref = db.collection("games").document(game)
+    doc_ref.update({"game_ended": True})
+    
+    result_split = doc_ref.get("result").split("_")
+    home_team_result = result_split[0]
+    away_team_result = result_split[1]
+    
+    #POINTS UPDATE
+    bets_ref = db.collection("bets")
+    bets = bets_ref.stream()
+    for bet in bets:
+        bet_split = bet.id.split("_")
+        if bet_split[1] == game:
+            user_ref = db.collection("users").document(bet_split[0])
+            current_points = user_ref.get("points", 0)
+            home_team = bet.get("home_team")
+            away_team = bet.get("away_team")
+            #8 points for the exact result
+            if home_team_result == home_team and away_team_result == away_team:
+                current_points += 8
+                user_ref.update({"points": current_points})
+            #6 points for the correct goal difference
+            elif home_team_result - away_team_result == home_team - away_team:
+                current_points += 6
+                user_ref.update({"points": current_points})
+            #4 points for the correct tendency 
+            elif (home_team_result > away_team_result and home_team > away_team) or (home_team_result < away_team_result and home_team < away_team):
+                current_points += 4
+                user_ref.update({"points": current_points})
+            bets_ref.document(bet.id).delete()
+        
+def update_game_score_db(game, result):
+    doc_ref = db.collection("games").document(game)
+    doc_ref.update({"result": result})
+    
+#ADMIN FUCTIONS END

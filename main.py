@@ -1,32 +1,37 @@
 import flet as ft
 from firebase import db
 from paginated_dt import PaginatedDataTable
+from leaderboard_dt import LeaderboardDataTable
 from helpers import(
     update_name,
-    update_betting_game,
     login_db,
     signup_db,
     join_community_db,
     get_communities_to_join,
     add_community_db,
-    bet_on_game
+    bet_on_game, 
+    headers,
+    rows,
+    start_game_db,
+    end_game_db,
+    update_game_score_db,
+    set_games_today
     )
-    
 import pandas as pd
 import config
+
+current_time = "2024-06-15 8:00:00"
 
 def main(page: ft.Page): 
     page.title = "Betting App"
     page.adaptive = True
     
-    def headers(df : pd.DataFrame) -> list:
-        return [ft.DataColumn(ft.Text(header)) for header in df.columns]
+    def on_message(msg):
+        
+        
+        page.update()
 
-    def rows(df : pd.DataFrame) -> list:
-        rows = []
-        for index, row in df.iterrows():
-            rows.append(ft.DataRow(cells = [ft.DataCell(ft.Text(row[header])) for header in df.columns]))
-        return rows
+    page.pubsub.subscribe(on_message)
     
     navbar = ft.NavigationBar(
                             destinations=[
@@ -49,8 +54,6 @@ def main(page: ft.Page):
             ],
             rows=[],
         )
-    
-    dt_community= ft.DataTable()
     
     options_0_9 = [ft.dropdown.Option(0), ft.dropdown.Option(1), ft.dropdown.Option(2),
                     ft.dropdown.Option(3), ft.dropdown.Option(4), ft.dropdown.Option(5),
@@ -77,8 +80,9 @@ def main(page: ft.Page):
         if login_db(user_name):
                 page.go("/communities")
                 print("logged in as " + user_name)
-                init_dashboard()
+                set_games_today(current_time)
                 init_games()
+                init_dashboard()
                 return True
         return False
                
@@ -87,7 +91,10 @@ def main(page: ft.Page):
             signup_db(user_name)
             page.go("/communities")
             print("registered as " + user_name)
+            set_games_today(current_time)
             init_games()
+            init_dashboard()
+            
     
     def join_community(com_name):
         join_community_db(com_name)
@@ -98,16 +105,36 @@ def main(page: ft.Page):
         page.go("/communities")
         
     def set_up_current_betting_game(team_home_name, team_away_name, game_starts_at):
-        update_betting_game(team_home_name, team_away_name, game_starts_at)
+        config.team_home = team_home_name
+        config.team_away = team_away_name
+        config.game_time = game_starts_at
         page.go("/bet")
         
     def init_dashboard():
-        #TODO: Add Games
+        #Preview for today games
+        for game in config.games_today:
+            doc_ref = db.collection("games").document(game)
+            doc = doc_ref.get()
+            game_started = doc.to_dict().get("game_started", False)
+            team_home = doc.to_dict().get("team_home_name", "")
+            team_away = doc.to_dict().get("team_away_name", "")
+            text = [ft.Text(team_home + " vs " + team_away, theme_style=ft.TextThemeStyle.HEADLINE_SMALL),
+                    ft.Text("Today at: " + game, theme_style=ft.TextThemeStyle.HEADLINE_SMALL)]
+            
+            if game_started:
+                result = doc.to_dict().get("result", "")
+                text.append(ft.Text("Score: " + result, theme_style=ft.TextThemeStyle.HEADLINE_SMALL))
+            cards.append(
+                ft.Card(
+                    ft.Column(
+                        text
+                    )
+                )
+            )
         
         #Preview for Leaderboards
         for com in config.communities:
             df = pd.DataFrame(config.communities_data[com])
-            
             #When more than 7 users, choose some of them
             if len(df.index) > 7:
                 #TOP 3
@@ -181,10 +208,24 @@ def main(page: ft.Page):
     #def add_community_data
         #TODO
         
-            
-    def set_up_dt_community(com):
-        dt_community.columns=headers(pd.DataFrame(config.communities_data[com]))
-        dt_community.rows=rows(pd.DataFrame(config.communities_data[com]))
+    #ADMIN FUNCTIONS START
+    
+    def start_game(game):
+        start_game_db(game)
+        page.pubsub.send_all("admin: start_"+ f"{game}")
+        page.update()
+    
+    def end_game(game):
+        end_game_db(game)
+        page.pubsub.send_all("admin: end_" + f"{game}")
+        page.update()
+    
+    def update_game_score(game, result):
+        update_game_score_db(game, result)
+        page.pubsub.send_all("admin: result_" + f"{game}")
+        page.update()
+    
+    #ADMIN FUCTIONS END
         
     def route_change(route):
         page.views.clear()
@@ -220,6 +261,33 @@ def main(page: ft.Page):
                     ],
                 )
             )
+        elif page.route == "/admin":
+            communities_view = ft.Column(
+                [
+                    ft.Text("My Communities:", theme_style=ft.TextThemeStyle.HEADLINE_SMALL),
+                ],
+            )
+            if len(config.communities) > 0:
+                for com in config.communities:
+                    communities_view.controls.append(ft.ElevatedButton(com, on_click=lambda e: page.go("/community_" + e.control.text)))
+            else:
+                communities_view.controls.append(ft.Text("you haven't joined any communities"))
+                
+            if len(config.communities) < 5:
+                    communities_view.controls.append(ft.ElevatedButton("Join a Community", on_click=lambda _: page.go("/communities_join")))
+            
+            communities_view.alignment=ft.alignment.center
+            page.views.append(
+                ft.View(
+                    "/communities",
+                    [
+                        ft.AppBar(title=ft.Text("Euro 2024 Communities"), leading=None, bgcolor=ft.colors.SURFACE_VARIANT),
+                        communities_view,
+                        navbar
+                    ],
+                )
+            )
+            
         elif page.route == "/communities":
             communities_view = ft.Column(
                 [
@@ -272,13 +340,13 @@ def main(page: ft.Page):
             )
         elif page.route.startswith("/community_"):
             community_split = page.route.split("_")
-            set_up_dt_community(community_split[1])
+            df_community = pd.DataFrame(config.communities_data[community_split[1]])
             page.views.append(
                 ft.View(
                     "/community_" + community_split[1],
                     [
                         ft.AppBar(title=ft.Text("Community " + community_split[1]), bgcolor=ft.colors.SURFACE_VARIANT),
-                        PaginatedDataTable(datatable=dt_community, rows_per_page=8),
+                        LeaderboardDataTable(dataframe=df_community, com = community_split[1], user = config.name),
                         navbar
                     ],
                 )

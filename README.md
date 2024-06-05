@@ -8,11 +8,11 @@ A betting_challenge application for Check24 challenge (app to bet on sports, UEF
 
 --Firebase was chosen as an easy and free (in this case) solution for the DB, which can potentially handle lots of requests and users.
 
+- Limitations: problems if communities/names use "_" symbol; app shows today's games in dashboard (date is hardcoded as string, not checking devices current time)
 
 
-
-I will add the video till Wednesday 06.06 :)
-Currently dashboard is not completely implemented, will be added on Tuesday, still some bugs are present, will be fixed before Wednesday
+I will add the video on Wednesday's evening, 05.06 :)
+Still some bugs are present (especially for leaderboards and broadcasting updates), will be fixed on Wednesday
 
 To run the app:
 
