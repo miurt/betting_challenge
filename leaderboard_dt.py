@@ -62,6 +62,7 @@ class LeaderboardDataTable(ft.UserControl):
             for i in new_indices:
                 self.rows_indicies.insert(ind, i) 
             self.down_index -= 10
+        self.refresh_data()
     
     def build_new_dt(self):
         #CASE 1: no pagination
@@ -69,18 +70,26 @@ class LeaderboardDataTable(ft.UserControl):
         if len(self.df.index) == len(self.rows_indicies) or len(self.df.index) < 6:
             print(self.df)
             print(self.headers(self.df), self.rows(self.df))
-            return [
+            return ft.Column(
+                [
                     ft.Text(self.title, theme_style=ft.TextThemeStyle.HEADLINE_SMALL),
                     ft.DataTable(columns=self.headers(self.df), rows=self.rows(self.df))
                 ],
+                scroll=ft.ScrollMode.AUTO,
+                alignment = ft.alignment.center
+            )
         
         #CASE 2: no pagination
         #no users between logged user and top
         elif self.top_index <= self.down_index-1:
-            return [
+            return ft.Column(
+                [
                     ft.Text(self.title, theme_style=ft.TextThemeStyle.HEADLINE_SMALL),
                     ft.DataTable(columns=self.headers(self.df), rows=self.rows(self.df.iloc[self.rows_indicies]))
                 ],
+                scroll=ft.ScrollMode.AUTO,
+                alignment = ft.alignment.center
+            )
         
             
         #CASE 3: pagination
@@ -89,7 +98,8 @@ class LeaderboardDataTable(ft.UserControl):
             top_indicies = [self.rows_indicies[:self.top_index]]
             down_indicies = [self.rows_indicies[self.top_index+1:]]
 
-            return [
+            return ft.Column(
+                [
                 ft.Text(self.title, theme_style=ft.TextThemeStyle.HEADLINE_SMALL),    
                 ft.DataTable(columns=self.headers(self.df), rows=self.rows(self.df.iloc[top_indicies])),
                 ft.IconButton(
@@ -103,21 +113,19 @@ class LeaderboardDataTable(ft.UserControl):
                     on_click=self.update_indices(self, False)
                 ),
                 ft.DataTable(columns=self.headers(self.df), rows=self.rows(self.df.iloc[down_indicies])),
-            ]
+                ],
+                scroll=ft.ScrollMode.AUTO,
+                alignment = ft.alignment.center
+            )
                     
         
 
     def build(self):
-        content = self.build_new_dt()
         return  ft.Card(
             ft.Container(
-                    ft.Column(
-                        content,
-                        scroll=ft.ScrollMode.AUTO,
-                        alignment = ft.alignment.center
-                    ),
-                    padding=10,
-                )
+                self.build_new_dt(),
+                padding=10,
+            )
         )
 
     def refresh_data(self):
