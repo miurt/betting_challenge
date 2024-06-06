@@ -18,10 +18,11 @@ App to bet on sports, UEFA Euro 2024 in this example.
     - App shows today's games in dashboard (date is hardcoded as string, not checking devices current time)
     - Some small bugs are present, but app is mainly finished
 
-### Demonstation Video
-~~I will add the video on Wednesday's evening, 05.06~~
+### Demonstation Video ###
 > [!IMPORTANT]
-> **Correction**: I used all my free reads from the data base, so i will upload the demonstration video **during Thursday**
+> **Correction**: I used all my free reads from the data base, so i will upload the second part of demonstration video **on Saturday**. Only small part of the demonstration of the betting logic left.
+**[HERE]**(https://youtu.be/FzVyrGkc5HU) you can find the video
+
 
 ### App currently offers:
 - [x] login/signup functions (only login is needed, no password)
@@ -33,19 +34,21 @@ App to bet on sports, UEFA Euro 2024 in this example.
 - [x] Funciton for betting, logic for updating points
 - [x] Custom Widget for showing Leaderboards
 - [x] Another Paginated DataTable Widget (for games listing) was taken from [here](https://github.com/bobwatcherx/FletPaginatedTable/tree/master)
+- [x] Storage of data in firestore
+- [x] App updates itself without reloading, when some data is changed 
 
 ### What can be further done:
 - [ ] UI is still far from perfect in some parts (for example, time and date should be shown more appealing for the user)
-- [ ] Sometimes app doesn't update the page/data by itself without reloading
-- [ ] The latter function is hard to test, as it is not so easy to start 2 separate instances of the app that will be subscibed to PuSub
+- [x] ~~Sometimes app doesn't update the page/data by itself without reloading~~ Fixed
+- [ ] The latter function is hard to test, as the app is not deployed, so there still might be some bugs
 - [ ] Checking actual time and not using hard coded string
 - [ ] Pinning friends was not implemented, since I was confused, how it should work together with pagination. But both search and pinning is possible to implement.
 - [ ] Also sorting of users with the same rank is done by name in the leaderboards, not by registration date, as stated in the challenge. This can be easily changed, just by additional saving of registration time in the firestore and sorting by it (as sorting is mainly done with pandas)
-- [ ] Code can be further cleaned/structured/optimised (for example, if a user joins a community, currently the whole community data is updated. For better performance, only the new user data should be fetched and added to the config.communities_data)
+- [ ] Code can be further cleaned/structured/optimised (~~for example, if a user joins a community, currently the whole community data is updated.~~*Partly fixed: now the whole data is not fetched for the user itself, only needed data. Didn't get fixed, when the other than logged in user joins any community.* For better performance, only the new user data should be fetched and added to the config.communities_data)
 
 ### Images
 > [!NOTE]
-> Those are basically screenshots from video I was doing when I reached max readings, so not all the fuctions present here
+> Only some screenshots, I will add more on Friday
 
 <img src="/images/image-2.png" width="28%" height="28%"><img src="/images/image-4.png" width="28%" height="28%"><img src="/images/image-1.png" width="28%" height="28%"><img src="/images/image.png" width="30%" height="30%"><img src="/images/image-3.png" width="35%" height="35%">
 

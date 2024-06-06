@@ -17,6 +17,8 @@ from helpers import(
     update_game_score_db,
     set_games_today,
     set_communities_data,
+    add_new_community_data,
+    add_single_community_data,
     ButtonWithInfo
     #add_user_to_community_data
     )
@@ -33,25 +35,29 @@ def main(page: ft.Page):
         print(str(msg))
         msg = msg.split(": ")
         #ADMIN UPDATES
-        if msg[0] == "admin":
-            msg = msg[0].split("_")
+        if msg[0] == "admin" and not page.route == "/admin":
+            msg = msg[1].split("_")
         #Game started
             if msg[0] == "start":
                 init_games()
                 init_dashboard()
+                print(msg[1] + " started")
         #Game result updated
-            if msg[0] == "result":
+            elif msg[0] == "result":
                 init_dashboard()
+                print(msg[1] + " new Score")
         #Game ended
-            if msg[0] == "end":
+            elif msg[0] == "end":
                 set_communities_data()
-            page.go("/admin")
+                print(msg[1] + " ended")
             page.update()
-            page.go("/admin")
+            page.go("/dashboard")
+            
         
         #ADMIN UPDATES END
         
-        else:
+        elif not msg[0] == config.name:
+            print("Updating community data")
             set_communities_data()
             #new_user = msg[0]
             #com = msg[1]
@@ -88,9 +94,12 @@ def main(page: ft.Page):
                     ft.dropdown.Option(6), ft.dropdown.Option(7), ft.dropdown.Option(8),
                     ft.dropdown.Option(9),]
     
+    #FOR ADMIN MODE
     games_view = ft.Column(controls = [])
     
     cards = []
+    
+    communities_view = ft.Column(controls = [])
     
     def navigation():
         match navbar.selected_index:
@@ -106,6 +115,7 @@ def main(page: ft.Page):
     def login(user_name):
         if user_name == "admin":
             #ADMIN MODE
+            config.name = ""
             set_games_today(current_time)
             page.go("/admin")
         elif login_db(user_name):
@@ -129,11 +139,19 @@ def main(page: ft.Page):
     
     def join_community(com_name):
         page.pubsub.send_all(f"{config.name}: {com_name}")
-        join_community_db(com_name)
+        if join_community_db(com_name):
+            add_single_community_data(com_name)
+            
+        init_dashboard()
+        page.update()
         page.go("/communities")
         
     def add_community(com_name):
-        add_community_db(com_name)
+        if add_community_db(com_name):
+            add_new_community_data(com_name)
+            init_dashboard()
+        init_dashboard()
+        page.update()
         page.go("/communities")
         
     def set_up_current_betting_game(team_home_name, team_away_name, game_starts_at):
@@ -149,6 +167,7 @@ def main(page: ft.Page):
     def init_dashboard():
         #Preview for today games
         cards.clear()
+        cards.append(ft.AppBar(title=ft.Text("Dashboard"), bgcolor=ft.colors.SURFACE_VARIANT))
         for game in config.games_today:
             doc_ref = db.collection("games").document(game)
             doc = doc_ref.get()
@@ -178,6 +197,7 @@ def main(page: ft.Page):
                 indicies = [0, 1, 2]
                 
                 #logged user and users around him
+                user_row_num = 0
                 user_row_num = df.index.get_loc(df[df['User'] == config.name].index[0])
                 if user_row_num == 2:
                     indicies.append(3)
@@ -221,6 +241,7 @@ def main(page: ft.Page):
                     elevation=5,
                 ),
             )
+            cards.append(navbar)
       
     def init_games():
         docs_ref = db.collection("games")
@@ -230,7 +251,6 @@ def main(page: ft.Page):
             team_away_name = game.to_dict().get("team_away_name", "")
             game_starts_at = game.to_dict().get("game_starts_at", "")
             started = game.to_dict().get("game_started", False)
-            x = [team_home_name, team_away_name, game_starts_at]
             dt_games.rows.append(ft.DataRow(
                     cells=[
                         ft.DataCell(ft.Text(team_home_name)),
@@ -247,21 +267,71 @@ def main(page: ft.Page):
             )
         
     #ADMIN FUNCTIONS START
+    def init_admin_mode():
+        games_view.controls.clear()
+        items = [ft.Dropdown(
+                        options=options_0_9,
+                        alignment=ft.alignment.center,
+                        width=80,
+                        height=80,
+                        border_radius=ft.border_radius.all(5),
+                        ),
+                     ft.Container(
+                        content=ft.Text("vs"),
+                        alignment=ft.alignment.center,
+                        width=80,
+                        height=80,
+                        bgcolor=ft.colors.LIGHT_BLUE_50,
+                        border_radius=ft.border_radius.all(5),
+                        ),
+                     ft.Dropdown(
+                        options=options_0_9,
+                        alignment=ft.alignment.center,
+                        width=80,
+                        height=80,
+                        border_radius=ft.border_radius.all(5),
+                        ),
+                    ]
+        games_view.controls.append(ft.Text("Today's Games:", theme_style=ft.TextThemeStyle.HEADLINE_SMALL))
+        if len(config.games_today) > 0:
+            for game in config.games_today:
+                    doc_ref = db.collection("games").document(game)
+                    doc = doc_ref.get()
+                    game_started = doc.to_dict().get("game_started", False)
+                    game_ended = doc.to_dict().get("game_ended", False)
+                    team_home = doc.to_dict().get("team_home_name", "")
+                    team_away = doc.to_dict().get("team_away_name", "")
+                    games_view.controls.append(ft.Text(team_home + " vs " + team_away, theme_style=ft.TextThemeStyle.HEADLINE_SMALL))
+                    if not game_started:
+                        games_view.controls.append(ButtonWithInfo(text ="Start", info = [game], on_click=lambda e: start_game(e.control.info[0])))
+                    elif not game_ended:
+                        games_view.controls.extend(
+                            [
+                                ft.Row(spacing=3, controls=items),
+                                ButtonWithInfo(text = "Update", info = [game], on_click=lambda e: update_game_score(e.control.info[0], str(items[0].value) + "_" + str(items[2].value))),
+                                ButtonWithInfo(text = "Stop", info = [game], on_click=lambda e: end_game(e.control.info[0])),
+                            ]
+                        )
+            
+        games_view.alignment=ft.alignment.center
     
     def start_game(game):
         start_game_db(game)
         page.pubsub.send_all("admin: start_"+ f"{game}")
         page.update()
+        page.go("/admin")
     
     def end_game(game):
         end_game_db(game)
         page.pubsub.send_all("admin: end_" + f"{game}")
         page.update()
+        page.go("/admin")
     
     def update_game_score(game, result):
         update_game_score_db(game, result)
         page.pubsub.send_all("admin: result_" + f"{game}")
         page.update()
+        page.go("/admin")
     
     #ADMIN FUCTIONS END
         
@@ -301,54 +371,10 @@ def main(page: ft.Page):
             )
             #ADMIN MODE
         elif page.route == "/admin":
-            games_view.controls.clear()
-            items = [ft.Dropdown(
-                        options=options_0_9,
-                        alignment=ft.alignment.center,
-                        width=80,
-                        height=80,
-                        border_radius=ft.border_radius.all(5),
-                        ),
-                     ft.Container(
-                        content=ft.Text("vs"),
-                        alignment=ft.alignment.center,
-                        width=80,
-                        height=80,
-                        bgcolor=ft.colors.LIGHT_BLUE_50,
-                        border_radius=ft.border_radius.all(5),
-                        ),
-                     ft.Dropdown(
-                        options=options_0_9,
-                        alignment=ft.alignment.center,
-                        width=80,
-                        height=80,
-                        border_radius=ft.border_radius.all(5),
-                        ),
-                    ]
-            games_view.controls.append(ft.Text("Today's Games:", theme_style=ft.TextThemeStyle.HEADLINE_SMALL))
-            if len(config.games_today) > 0:
-                for game in config.games_today:
-                    doc_ref = db.collection("games").document(game)
-                    doc = doc_ref.get()
-                    game_started = doc.to_dict().get("game_started", False)
-                    team_home = doc.to_dict().get("team_home_name", "")
-                    team_away = doc.to_dict().get("team_away_name", "")
-                    games_view.controls.append(ft.Text(team_home + " vs " + team_away, theme_style=ft.TextThemeStyle.HEADLINE_SMALL))
-                    if not game_started:
-                        games_view.controls.append(ButtonWithInfo(text ="Start", info = [game], on_click=lambda e: start_game(e.control.info[0])))
-                    else:
-                        games_view.controls.extend(
-                            [
-                                ft.Row(spacing=3, controls=items),
-                                ButtonWithInfo(text = "Update", info = [game], on_click=lambda e: update_game_score(e.control.info[0], str(items[0].value) + "_" + str(items[2].value))),
-                                ButtonWithInfo(text = "Stop", info = [game], on_click=lambda e: end_game(e.control.info[0])),
-                            ]
-                        )
-            
-            games_view.alignment=ft.alignment.center
+            init_admin_mode()
             page.views.append(
                 ft.View(
-                    "/communities",
+                    "/admin",
                     [
                         #GAMES TODAY #START 
                         #IF STARTED UPDATE SCORE / END
@@ -359,11 +385,8 @@ def main(page: ft.Page):
             )
             
         elif page.route == "/communities":
-            communities_view = ft.Column(
-                [
-                    ft.Text("My Communities:", theme_style=ft.TextThemeStyle.HEADLINE_SMALL),
-                ],
-            )
+            communities_view.controls.clear()
+            communities_view.controls.append(ft.Text("My Communities:", theme_style=ft.TextThemeStyle.HEADLINE_SMALL))
             if len(config.communities) > 0:
                 for com in config.communities:
                     communities_view.controls.append(ft.ElevatedButton(com, on_click=lambda e: page.go("/community_" + e.control.text)))
@@ -411,12 +434,13 @@ def main(page: ft.Page):
         elif page.route.startswith("/community_"):
             community_split = page.route.split("_")
             df_community = pd.DataFrame(config.communities_data[community_split[1]])
+            leaderboard = LeaderboardDataTable(dataframe=df_community, com = community_split[1], user = config.name)
             page.views.append(
                 ft.View(
                     "/community_" + community_split[1],
                     [
                         ft.AppBar(title=ft.Text("Community " + community_split[1]), bgcolor=ft.colors.SURFACE_VARIANT),
-                        LeaderboardDataTable(dataframe=df_community, com = community_split[1], user = config.name),
+                        leaderboard,
                         navbar,
                     ],
                     scroll=ft.ScrollMode.ADAPTIVE
@@ -424,8 +448,6 @@ def main(page: ft.Page):
             )
         
         elif page.route == "/dashboard":
-            cards.insert(0, ft.AppBar(title=ft.Text("Dashboard"), bgcolor=ft.colors.SURFACE_VARIANT))
-            cards.append(navbar)
             page.views.append(
                 ft.View(
                     "/dashboard",

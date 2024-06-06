@@ -40,7 +40,7 @@ class LeaderboardDataTable(ft.UserControl):
                 self.down_index = self.user_index
                 self.rows_indicies.append(self.user_index)
             elif self.user_index in (0, 1, 2):
-                self.down_index = self.user_index
+                self.down_index = len(self.df.index)-1
                 self.top_index = self.user_index
             #last user
             self.rows_indicies.append(len(self.df.index)-1)

@@ -11,6 +11,8 @@ class ButtonWithInfo(ft.ElevatedButton):
         self.text = text
         self.on_click = on_click
         self.info = info
+        if len(info) >= 4:
+            self.disabled = info[3]
 
 def headers(df : pd.DataFrame) -> list:
     return [ft.DataColumn(ft.Text(header)) for header in df.columns]
@@ -50,6 +52,7 @@ def join_community_db(com_name):
     doc_ref = db.collection("communities").document(com_name)
     doc_ref.update({"members": firestore.ArrayUnion([config.name])})
     config.communities.append(com_name)
+    return True
     
 def get_all_communities():
     doc_ref = db.collection("communities")
@@ -68,13 +71,15 @@ def add_community_db(com_name):
         doc_ref = db.collection("communities").document(com_name)
         doc_ref.set({})
         
-        join_community_db(com_name)
+        return join_community_db(com_name)
+    return False
     
 def bet_on_game_db(first, second):
     doc_ref = db.collection("bets").document(config.name + "_" + config.game_time)
     doc_ref.set({"home_team": first,"away_team": second})
     
 def set_games_today(today):
+    config.games_today = []
     today_time = today.split(" ")
     games_ref = db.collection("games")
     games = games_ref.stream()
@@ -102,7 +107,38 @@ def set_communities_data():
         df.insert(loc=0, column="Position", value = df["Points"].rank(method = 'dense',ascending = False).astype('Int64'))
         df = df.sort_values(by=['Position', 'Points'], ascending=[True, True])
         config.communities_data[doc.id].update(df)
+    return True
+
+def add_single_community_data(com):
+    doc_ref = db.collection("communities").document(com)
+    doc = doc_ref.get()
+    members = doc.get("members")
+    print(members)
+    config.communities_data[com] = {}
+    users_ref = db.collection("users")
+    users = users_ref.stream()
+    data = []
+    for user in users:
+        if user.id in members:
+            data.append([user.id, user.to_dict().get("points", 0)])     
+            df = pd.DataFrame(data, columns=["User", "Points"])
+            #adding ranking
+            df.insert(loc=0, column="Position", value = df["Points"].rank(method = 'dense',ascending = False).astype('Int64'))
+            df = df.sort_values(by=['Position', 'Points'], ascending=[True, True])
+            config.communities_data[doc.id].update(df)
+            print(config.communities_data[doc.id])
+    
         
+def add_new_community_data(com):
+    user = db.collection("users").document(config.name).get()
+    config.communities_data[com] = {}
+    data = []
+    data.append([user.id, user.to_dict().get("points", 0)])
+    df = pd.DataFrame(data, columns=["User", "Points"])
+    df.insert(loc=0, column="Position", value = [1])
+    config.communities_data[com].update(df)
+    
+    
 #ADMIN FUNCTIONS START
     
 def start_game_db(game):
@@ -125,12 +161,12 @@ def end_game_db(game):
         if bet_split[1] == game:
             user_ref = db.collection("users").document(bet_split[0])
             user = user_ref.get()
+            print(user.id)
             current_points = user.to_dict().get("points", 0)
             home_team = bet.to_dict().get("home_team", 0)
             away_team = bet.to_dict().get("away_team", 0)
             #8 points for the exact result
             if home_team_result == home_team and away_team_result == away_team:
-                print("hehe " + str(current_points))
                 current_points += 8
                 user_ref.update({"points": current_points})
             #6 points for the correct goal difference
