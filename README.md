@@ -47,7 +47,7 @@ App to bet on sports, UEFA Euro 2024 in this example.
 > [!NOTE]
 > Those are basically screenshots from video I was doing when I reached max readings, so not all the fuctions present here
 
-<img src="/images/image-2.png" width="30%" height="28%"><img src="/images/image-4.png" width="29%" height="29%"><img src="/images/image.png" width="30%" height="30%"><img src="/images/image-3.png" width="35%" height="35%">
+<img src="/images/image-2.png" width="28%" height="28%"><img src="/images/image-4.png" width="28%" height="28%"><img src="/images/image-1.png" width="28%" height="28%"><img src="/images/image.png" width="30%" height="30%"><img src="/images/image-3.png" width="35%" height="35%">
 
 
 ### To run the app:
