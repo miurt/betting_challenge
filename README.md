@@ -21,8 +21,10 @@ App to bet on sports, UEFA Euro 2024 in this example.
 ### Demonstation Video ###
 > [!IMPORTANT]
 > During first video recording, I used all my free reads for the day from firestore. So smal part of the demonstration of the betting logic and admin mode was recorded separately (in PART 2).
-**[PART 1]**(https://youtu.be/FzVyrGkc5HU) link for the first part of the video
-**[PART 2]**(https://youtu.be/2UKAy48pVD8) link for the second part of the video
+
+**[1 PART](https://youtu.be/FzVyrGkc5HU)** link for the first part of the video
+
+**[2 PART](https://youtu.be/2UKAy48pVD8)** link for the second part of the video
 
 
 ### App currently offers:
