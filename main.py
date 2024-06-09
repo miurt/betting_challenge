@@ -62,8 +62,6 @@ def main(page: ft.Page):
             #new_user = msg[0]
             #com = msg[1]
             #add_user_to_community_data(new_user, com)
-        
-            page.update()
 
     page.pubsub.subscribe(on_message)
     
@@ -88,6 +86,8 @@ def main(page: ft.Page):
             ],
             rows=[],
         )
+    
+    pg_dt_games = PaginatedDataTable(datatable=dt_games, table_title="Games In Euro 2024", rows_per_page=5)
     
     options_0_9 = [ft.dropdown.Option(0), ft.dropdown.Option(1), ft.dropdown.Option(2),
                     ft.dropdown.Option(3), ft.dropdown.Option(4), ft.dropdown.Option(5),
@@ -117,6 +117,7 @@ def main(page: ft.Page):
             #ADMIN MODE
             config.name = ""
             set_games_today(current_time)
+            init_admin_mode()
             page.go("/admin")
         elif login_db(user_name):
                 page.go("/communities")
@@ -265,6 +266,10 @@ def main(page: ft.Page):
                     ]
                 )
             )
+        nonlocal pg_dt_games 
+        pg_dt_games = PaginatedDataTable(datatable=dt_games, table_title="Games In Euro 2024", rows_per_page=5)
+        
+        
         
     #ADMIN FUNCTIONS START
     def init_admin_mode():
@@ -318,18 +323,21 @@ def main(page: ft.Page):
     def start_game(game):
         start_game_db(game)
         page.pubsub.send_all("admin: start_"+ f"{game}")
+        init_admin_mode()
         page.update()
         page.go("/admin")
     
     def end_game(game):
         end_game_db(game)
         page.pubsub.send_all("admin: end_" + f"{game}")
+        init_admin_mode()
         page.update()
         page.go("/admin")
     
     def update_game_score(game, result):
         update_game_score_db(game, result)
         page.pubsub.send_all("admin: result_" + f"{game}")
+        init_admin_mode()
         page.update()
         page.go("/admin")
     
@@ -371,7 +379,6 @@ def main(page: ft.Page):
             )
             #ADMIN MODE
         elif page.route == "/admin":
-            init_admin_mode()
             page.views.append(
                 ft.View(
                     "/admin",
@@ -461,7 +468,7 @@ def main(page: ft.Page):
                     "/games",
                     [
                         ft.AppBar(title=ft.Text("Games"), bgcolor=ft.colors.SURFACE_VARIANT),
-                        PaginatedDataTable(datatable=dt_games, table_title="Games In Euro 2024", rows_per_page=5),
+                        pg_dt_games,
                         navbar
                     ],
                 )
@@ -512,4 +519,4 @@ def main(page: ft.Page):
     page.on_view_pop = view_pop
     page.go(page.route)
 
-ft.app(target=main, view = ft.WEB_BROWSER)
+ft.app(target=main)
