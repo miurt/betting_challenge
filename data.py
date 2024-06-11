@@ -1,4 +1,4 @@
-from firebase import db
+from sevices.firebase import db
 from google.cloud import firestore
 import random
 

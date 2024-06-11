@@ -41,7 +41,7 @@ class LeaderboardDataTable(ft.UserControl):
                 self.rows_indicies.append(self.user_index)
             elif self.user_index in (0, 1, 2):
                 self.down_index = len(self.df.index)-1
-                self.top_index = self.user_index
+                self.top_index = 2
             #last user
             self.rows_indicies.append(len(self.df.index)-1)
             
@@ -65,7 +65,8 @@ class LeaderboardDataTable(ft.UserControl):
                     break
             
         else:
-            index = self.down_index
+            index = self.down_index + 1
+            print(index)
             new_indices = range(index - 12, index - 1)
             ind = self.top_index + 1
             num_to_substract = 0
@@ -75,6 +76,7 @@ class LeaderboardDataTable(ft.UserControl):
                     ind += 1
                     num_to_substract += 1
             self.down_index -= num_to_substract
+            print(self.top_index, self.down_index)
             
         self.refresh_data()
     
@@ -88,7 +90,7 @@ class LeaderboardDataTable(ft.UserControl):
                 ]
         
         #CASE 2: no pagination
-        #no users between logged user and top
+        #no users between logged user and top/down
         elif self.top_index >= self.down_index-1:
             df = self.df.iloc[self.rows_indicies]
             return [
